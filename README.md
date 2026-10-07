@@ -2,6 +2,8 @@
 
 > PixShrink is a desktop PNG optimization tool designed to reduce image file sizes while preserving visual quality.
 
+Licensing: The desktop application is MIT-licensed; the pngopt compression engine is GPLv3-or-later. See [Licensing](#-Licensing) for details.
+
 [How to use](#-usage) • [Optimization details](#optimization-options)
 
 It combines a desktop interface made in C# using the Avalonia framework with a standalone Python compression script, communicating through a JSON-based process interface.
