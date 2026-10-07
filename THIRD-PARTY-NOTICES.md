@@ -4,7 +4,7 @@ PixShrink Compressor uses the following third-party software.
 
 The licenses below apply to the respective third-party components and do not replace or modify their original license terms.
 
-## Pillow
+## Pillow 12.3.0
 
 **License:** MIT-CMU License
 
@@ -34,7 +34,7 @@ The `imagequant` Python bindings are licensed under the BSD 3-Clause License and
 
 For Free/Libre Open Source Software, `libimagequant` is available under the GNU GPL version 3 or later, with additional copyright notices for historical portions of the code. For closed-source software, App Store distribution, and other non-GPL uses, a separate commercial license is available from the `libimagequant` project.
 
-## pyoxipng
+## pyoxipng 9.1.1
 
 **License:** MIT License
 
