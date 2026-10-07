@@ -73,8 +73,8 @@ PixShrink lets you control the compression level, trading processing time for po
 <img width="631" height="57" alt="image" src="https://github.com/user-attachments/assets/573ff83e-e7eb-4ec6-9fde-fe3ec2d35da5" />
 
 ## 📄 Licensing
-The PixShrink desktop application is licensed under the MIT License. See LICENSE for more details.
+The PixShrink desktop application is licensed under the MIT License. See [LICENSE](./LICENSE) for more details.
 
-The PNG compressor is licensed under the GNU General Public License v3 or later due to its use of `libimagequant`.
+The pngopt PNG optimization engine is licensed under the GNU General Public License v3 or later (see [LICENSE](./pngopt/LICENSE) for the full text). It uses libimagequant, which is available under the GPLv3 or later for free/libre open-source software.
 
 Third-party dependencies retain their respective licenses. See [THIRD-PARTY-NOTICES](./THIRD-PARTY-NOTICES.md).
