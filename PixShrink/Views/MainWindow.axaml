@@ -1,0 +1,217 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:PixShrink.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1450" d:DesignHeight="700"
+        x:Class="PixShrink.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="650"
+        Height="750"
+        MinWidth="600"
+        MinHeight="720">
+    
+    <!-- Rows:
+        0 -> All inputs (stretches to the window width)
+        1 -> Compress button pinned to the bottom right
+     -->
+    <Grid Margin="20" RowDefinitions="*, Auto">
+        <StackPanel Grid.Row="0" Spacing="16">
+            <!-- Small text containing the name of the output file -->
+            <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="Auto, *">
+                    <TextBlock 
+                        Grid.Column="0" 
+                        Text="Output file name" 
+                        Margin="5,8,0,0"
+                        HorizontalAlignment="Center"/>
+                    <TextBox 
+                        Grid.Column="1"
+                        x:Name="OutputFileBox" 
+                        Text="{Binding OutputFileName, Mode=TwoWay}"
+                        MinHeight="34"
+                        VerticalContentAlignment="Center"
+                        Margin="50,0,0,8"/>
+                </Grid>
+            </StackPanel>
+            
+            <!-- Configures:
+                 * Read only chosen path to file for accessibility
+                 * Button to choose the input file
+            -->
+        <StackPanel x:Name="InputDropArea" Spacing="4" DragDrop.AllowDrop="True">
+                <TextBlock Text="Input file"/>
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBox x:Name="InputPathBox"
+                             Grid.Column="0"
+                             Text="{Binding InputFilePath}"
+                             IsReadOnly="True"
+                             MinHeight="34"
+                             PlaceholderText="Drop a PNG here or click..."
+                             VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="1"
+                            Content="..."
+                            Margin="8,0,0,0"
+                            MinWidth="44"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Click="OnChooseFile"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Configures:
+                 * Read only chosen path to directory for accessibility
+                 * Button to choose the output directory
+            -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Output Directory"/>
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBox x:Name="OutputPathBox"
+                             Grid.Column="0"
+                             Text="{Binding OutputFolderPath}"
+                             IsReadOnly="True"
+                             MinHeight="34"
+                             VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="1"
+                            Content="..."
+                            Margin="8,0,0,0"
+                            MinWidth="44"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Click="OnChooseDirectory"/>
+                </Grid>
+            </StackPanel>
+            
+            <!-- Color mode: RGB/Grayscale/Indexed -->
+            <TextBlock Margin="5, 8, 0, 0" Text="Color Mode"/>
+            <RadioButton GroupName="ColorModeGroup"
+                         Content="RGB"
+                         IsChecked="{Binding SelectedColorMode, 
+                         Converter={StaticResource EnumToBoolConverter}, 
+                         ConverterParameter={x:Static vm:eColorMode.rgb}}"/>
+
+            <RadioButton GroupName="ColorModeGroup"
+                         Content="Grayscale"
+                         IsChecked="{Binding SelectedColorMode, 
+                         Converter={StaticResource EnumToBoolConverter}, 
+                         ConverterParameter={x:Static vm:eColorMode.grayscale}}"/>
+
+            <RadioButton GroupName="ColorModeGroup"
+                         Content="Indexed"
+                         IsChecked="{Binding SelectedColorMode, 
+                         Converter={StaticResource EnumToBoolConverter}, 
+                         ConverterParameter={x:Static vm:eColorMode.indexed}}"/>
+            
+            <CheckBox IsChecked="{Binding UsePosterization, Mode=TwoWay}"
+                      Content="Posterize?"/>
+
+            <!-- Compression settings: label column sizes to content, box column takes the rest -->
+            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+                <!-- Posterize levels, only visible while "Posterize?" is checked -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           IsVisible="{Binding UsePosterization}"
+                           Text="Posterize levels"
+                           VerticalAlignment="Center"
+                           Margin="5,0,0,8"/>
+                
+                <Grid Grid.Row="0" Grid.Column="1"
+                      IsVisible="{Binding UsePosterization}"
+                      ColumnDefinitions="* ,Auto"
+                      Margin="50,0,0,8">
+                    <Slider x:Name="PosterizeSlider"
+                            Grid.Column="0"
+                            Minimum="2"
+                            Maximum="256"
+                            Value="{Binding PosterizeLevel, Mode=TwoWay}"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True"/>
+                    
+                    <TextBlock Grid.Column="1"
+                               Margin="12,0,0,0"
+                               VerticalAlignment="Center"
+                               MinWidth="30"
+                               Text="{Binding #PosterizeSlider.Value, StringFormat={}{0:F0}}"/>
+                </Grid>
+                
+                <!-- 
+                    Defines the color input (color palette indexing 1-256 colors).
+                    Displays only when the selected color mode is 'Indexed'
+                -->
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           Text="Colors (1-256)"
+                           IsVisible="{Binding SelectedColorMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:eColorMode.indexed}}"
+                           VerticalAlignment="Center"
+                           Margin="5,0,0,8"/>
+                <TextBox x:Name="ColorsBox"
+                         Grid.Row="1" Grid.Column="1"
+                         Text="{Binding Colors, Mode=TwoWay}"
+                         IsVisible="{Binding SelectedColorMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:eColorMode.indexed}}"
+                         MinHeight="34"
+                         VerticalContentAlignment="Center"
+                         Margin="50,0,0,8"/>
+
+                <!-- Defines the DEFLATE input (zlib DEFLATE 1-9 compression) -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="DEFLATE compression level (1-9)"
+                           VerticalAlignment="Center"
+                           Margin="5,0,0,0"/>
+                <TextBox x:Name="DeflateBox"
+                         Grid.Row="2" Grid.Column="1"
+                         Text="{Binding DeflateLevel, Mode=TwoWay}"
+                         MinHeight="34"
+                         VerticalContentAlignment="Center"
+                         Margin="50,0,0,0"/>
+                
+                <!-- Warning when Posterize is active -->
+                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                           IsVisible="{Binding IsDitherWarningVisible}"
+                           Text="⚠️ Posterization works best with lower dithering (&lt; 0.5) to avoid excessive noise."
+                           FontSize="12"
+                           Foreground="Orange"
+                           Margin="5,16,0,0"/>
+                
+                <!-- Defines the dither input (0.0 -> 1.0) 
+                    (reduce size on large image with smooth gradients but can yield worse looking results) 
+                -->
+                <TextBlock 
+                    Grid.Row="4" 
+                    Grid.Column="0" 
+                    Text="Dithering (0-1)"
+                    VerticalAlignment="Center" 
+                    Margin="5,8,0,0"/>
+                
+                <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*,Auto" Margin="50,8,0,0">
+                    <!-- Set to 1.0 by default since users usually won't need to change it -->
+                    <Slider 
+                        x:Name="DitherSlider" 
+                        Grid.Column="0"
+                        Minimum="0" 
+                        Maximum="1" 
+                        Value="{Binding Dither, Mode=TwoWay}"
+                        TickFrequency="0.1" 
+                        IsSnapToTickEnabled="True"/>
+                    
+                    <TextBlock 
+                        Grid.Column="1" 
+                        Margin="12,0,0,0" 
+                        VerticalAlignment="Center" 
+                        MinWidth="30"
+                        Text="{Binding Dither, StringFormat={}{0:F1}}"/>
+                </Grid>
+            </Grid>
+
+        </StackPanel>
+
+        <!-- Defines the button that calls the compressor when pressed -->
+        <Button Grid.Row="1"
+                Content="Compress"
+                Click="OnCompressClicked"
+                IsEnabled="{Binding !IsCompressing}"
+                HorizontalAlignment="Right"
+                Padding="24,8"
+                Margin="0,16,0,0"/>
+    </Grid>
+</Window>

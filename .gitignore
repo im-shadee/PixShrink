@@ -1,0 +1,51 @@
+# =========================
+# .NET / Visual Studio
+# =========================
+
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+[Dd]ebug/
+[Rr]elease/
+bin/
+obj/
+artifacts/
+
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+*/.venv/
+venv/
+env/
+ENV/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Python bundled executable / build artifacts
+optimizer/dist/
+optimizer/build/
+*.spec
+
+# =========================
+# IDE / OS
+# =========================
+
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
