@@ -19,7 +19,7 @@ namespace PixShrink.Views;
 public partial class MainWindow : Window
 {
     private static readonly string s_AppName = "PixShrink";
-    private static readonly string s_VersionNumber = "beta-1.1.0";
+    private static readonly string s_VersionNumber = "beta-1.2.0";
     
     private MainViewModel ViewModel => (MainViewModel)DataContext!;
 
