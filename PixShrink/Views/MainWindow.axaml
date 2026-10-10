@@ -3,12 +3,13 @@
         xmlns:vm="using:PixShrink.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:PixShrink.Models"
         mc:Ignorable="d" d:DesignWidth="1450" d:DesignHeight="700"
         x:Class="PixShrink.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Width="650"
-        Height="750"
+        Height="820"
         MinWidth="600"
         MinHeight="720">
     
@@ -18,46 +19,73 @@
      -->
     <Grid Margin="20" RowDefinitions="*, Auto">
         <StackPanel Grid.Row="0" Spacing="16">
-            <!-- Small text containing the name of the output file -->
-            <StackPanel Spacing="4">
-                <Grid ColumnDefinitions="Auto, *">
-                    <TextBlock 
-                        Grid.Column="0" 
-                        Text="Output file name" 
-                        Margin="5,8,0,0"
-                        HorizontalAlignment="Center"/>
-                    <TextBox 
-                        Grid.Column="1"
-                        x:Name="OutputFileBox" 
-                        Text="{Binding OutputFileName, Mode=TwoWay}"
-                        MinHeight="34"
-                        VerticalContentAlignment="Center"
-                        Margin="50,0,0,8"/>
-                </Grid>
-            </StackPanel>
-            
-            <!-- Configures:
-                 * Read only chosen path to file for accessibility
-                 * Button to choose the input file
-            -->
-        <StackPanel x:Name="InputDropArea" Spacing="4" DragDrop.AllowDrop="True">
-                <TextBlock Text="Input file"/>
-                <Grid ColumnDefinitions="*, Auto">
-                    <TextBox x:Name="InputPathBox"
-                             Grid.Column="0"
-                             Text="{Binding InputFilePath}"
-                             IsReadOnly="True"
+            <!-- Suffix appended to every input file name (before .png) -->
+            <Grid ColumnDefinitions="Auto, *">
+                    <TextBlock Grid.Column="0"
+                               Text="Output name suffix"
+                               VerticalAlignment="Center"
+                               Margin="5,0,0,0"/>
+                    <TextBox Grid.Column="1"
+                             x:Name="OutputSuffixBox"
+                             Text="{Binding OutputSuffix, Mode=TwoWay}"
+                             PlaceholderText="e.g. _compressed, _indexed"
+                             ToolTip.Tip="Added to each file name, before .png (photo.png becomes photo_compressed.png)"
                              MinHeight="34"
-                             PlaceholderText="Drop a PNG here or click..."
-                             VerticalContentAlignment="Center"/>
-                    <Button Grid.Column="1"
-                            Content="..."
-                            Margin="8,0,0,0"
-                            MinWidth="44"
-                            VerticalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            Click="OnChooseFile"/>
+                             VerticalContentAlignment="Center"
+                             Margin="50,0,0,0"/>
+            </Grid>
+
+            <!-- Input files:
+                * List of the selected files (full path in the tooltip)
+                * "..." replaces the selection (asks first if files are already selected)
+                * "Clear" empties the list
+            Files can also be dropped anywhere in this block.
+            -->
+            <StackPanel x:Name="InputDropArea" Spacing="4" DragDrop.AllowDrop="True">
+                <TextBlock Text="{Binding InputFilesLabel}"/>
+                <Grid ColumnDefinitions="*, Auto">
+                    <Grid Grid.Column="0">
+                        <ListBox x:Name="InputFilesList"
+                                 ItemsSource="{Binding InputFiles}"
+                                 SelectionMode="Multiple"
+                                 SelectionChanged="OnInputSelectionChanged"
+                                 Height="150"
+                                 BorderThickness="1"
+                                 BorderBrush="#66808080">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:InputFileItem">
+                                    <TextBlock Text="{Binding Name}"
+                                               ToolTip.Tip="{Binding FullPath}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Placeholder shown while the list is empty -->
+                        <TextBlock Text="Drop PNG files here or click ..."
+                                   IsVisible="{Binding !HasInputFiles}"
+                                   IsHitTestVisible="False"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Opacity="0.6"/>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="8">
+                        <Button Content="..." Width="76" HorizontalContentAlignment="Center"
+                                ToolTip.Tip="Replace the selection with new files"
+                                IsEnabled="{Binding !IsCompressing}" Click="OnChooseFiles"/>
+                        
+                        <Button Content="Add" Width="76" HorizontalContentAlignment="Center"
+                                ToolTip.Tip="Add files to the current selection"
+                                IsEnabled="{Binding !IsCompressing}" Click="OnAddFiles"/>
+                        
+                        <Button Content="Remove" Width="76" HorizontalContentAlignment="Center"
+                                ToolTip.Tip="Remove the files selected in the list"
+                                IsEnabled="{Binding CanRemoveSelected}" Click="OnRemoveSelected"/>
+                        
+                        <Button Content="Clear" Width="76" HorizontalContentAlignment="Center"
+                                ToolTip.Tip="Remove every file from the list"
+                                Command="{Binding ClearInputFilesCommand}"/>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
 
@@ -85,28 +113,31 @@
                 </Grid>
             </StackPanel>
             
-            <!-- Color mode: RGB/Grayscale/Indexed -->
-            <TextBlock Margin="5, 8, 0, 0" Text="Color Mode"/>
-            <RadioButton GroupName="ColorModeGroup"
-                         Content="RGB"
-                         IsChecked="{Binding SelectedColorMode, 
-                         Converter={StaticResource EnumToBoolConverter}, 
-                         ConverterParameter={x:Static vm:eColorMode.rgb}}"/>
+            <!-- Color mode: RGB/Grayscale/Indexed (on one row to save height) -->
+            <StackPanel Spacing="4">
+                <TextBlock Margin="5, 8, 0, 0" Text="Color Mode"/>
+                <StackPanel Orientation="Horizontal" Spacing="24">
+                    <RadioButton GroupName="ColorModeGroup"
+                                 Content="RGB"
+                                 IsChecked="{Binding SelectedColorMode,
+                                     Converter={StaticResource EnumToBoolConverter},
+                                     ConverterParameter={x:Static vm:eColorMode.Rgb}}"/>
 
-            <RadioButton GroupName="ColorModeGroup"
-                         Content="Grayscale"
-                         IsChecked="{Binding SelectedColorMode, 
-                         Converter={StaticResource EnumToBoolConverter}, 
-                         ConverterParameter={x:Static vm:eColorMode.grayscale}}"/>
+                    <RadioButton GroupName="ColorModeGroup"
+                                 Content="Grayscale"
+                                 IsChecked="{Binding SelectedColorMode,
+                                     Converter={StaticResource EnumToBoolConverter},
+                                     ConverterParameter={x:Static vm:eColorMode.Grayscale}}"/>
 
-            <RadioButton GroupName="ColorModeGroup"
-                         Content="Indexed"
-                         IsChecked="{Binding SelectedColorMode, 
-                         Converter={StaticResource EnumToBoolConverter}, 
-                         ConverterParameter={x:Static vm:eColorMode.indexed}}"/>
+                    <RadioButton GroupName="ColorModeGroup"
+                                 Content="Indexed"
+                                 IsChecked="{Binding SelectedColorMode,
+                                     Converter={StaticResource EnumToBoolConverter},
+                                     ConverterParameter={x:Static vm:eColorMode.Indexed}}"/>
+                </StackPanel>
+            </StackPanel>
             
-            <CheckBox IsChecked="{Binding UsePosterization, Mode=TwoWay}"
-                      Content="Posterize?"/>
+            <CheckBox IsChecked="{Binding UsePosterization, Mode=TwoWay}" Content="Posterize?"/>
 
             <!-- Compression settings: label column sizes to content, box column takes the rest -->
             <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto, Auto, Auto, Auto">
@@ -142,13 +173,17 @@
                 -->
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="Colors (1-256)"
-                           IsVisible="{Binding SelectedColorMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:eColorMode.indexed}}"
+                           IsVisible="{Binding SelectedColorMode, 
+                                Converter={StaticResource EnumToBoolConverter}, 
+                                ConverterParameter={x:Static vm:eColorMode.Indexed}}"
                            VerticalAlignment="Center"
                            Margin="5,0,0,8"/>
                 <TextBox x:Name="ColorsBox"
                          Grid.Row="1" Grid.Column="1"
                          Text="{Binding Colors, Mode=TwoWay}"
-                         IsVisible="{Binding SelectedColorMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static vm:eColorMode.indexed}}"
+                         IsVisible="{Binding SelectedColorMode, 
+                                Converter={StaticResource EnumToBoolConverter}, 
+                                ConverterParameter={x:Static vm:eColorMode.Indexed}}"
                          MinHeight="34"
                          VerticalContentAlignment="Center"
                          Margin="50,0,0,8"/>
@@ -204,14 +239,27 @@
             </Grid>
 
         </StackPanel>
+        
+        <!-- Bottom bar: progress on the left (only while running), Compress on the right -->
+        <Grid Grid.Row="1" ColumnDefinitions="*, Auto" Margin="0,16,0,0">
+            <StackPanel Grid.Column="0"
+                        Margin="0,0,16,0"
+                        VerticalAlignment="Center"
+                        Spacing="4"
+                        IsVisible="{Binding IsCompressing}">
+                <TextBlock Text="{Binding StatusText}"/>
+                <ProgressBar Minimum="0"
+                             Maximum="{Binding ProgressMax}"
+                             Value="{Binding ProgressValue}"/>
+            </StackPanel>
 
-        <!-- Defines the button that calls the compressor when pressed -->
-        <Button Grid.Row="1"
-                Content="Compress"
-                Click="OnCompressClicked"
-                IsEnabled="{Binding !IsCompressing}"
-                HorizontalAlignment="Right"
-                Padding="24,8"
-                Margin="0,16,0,0"/>
+            <!-- Defines the button that calls the compressor when pressed.
+            Disabled while running or while no input file is selected -->
+            <Button Grid.Column="1"
+                    Content="Compress"
+                    Click="OnCompressClicked"
+                    IsEnabled="{Binding CanStartCompression}"
+                    Padding="24,8"/>
+        </Grid>
     </Grid>
 </Window>

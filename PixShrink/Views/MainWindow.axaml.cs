@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -30,7 +27,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Title = $"{s_AppName}_{s_VersionNumber}";
-        
         DataContext = new MainViewModel();
         
         // Add events to handle file-drop into the input file field
@@ -41,7 +37,9 @@ public partial class MainWindow : Window
 
         ApplySavedWindowSettings();
     }
-    
+
+    #region Window Overrides
+
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
@@ -75,6 +73,10 @@ public partial class MainWindow : Window
 
         ViewModel.Settings.WriteToJson();
     }
+
+    #endregion
+
+    #region InputSelection
     
     // Input events when dragging a file over the input file field
     /// <summary>
@@ -84,7 +86,7 @@ public partial class MainWindow : Window
     /// <remarks>The cursor icon does not change if the dropped file is not a PNG.</remarks>
     private void OnInputDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = !ViewModel.IsCompressing && TryGetDroppedPng(e, out _)
+        e.DragEffects = !ViewModel.IsCompressing && TryGetDroppedPngs(e, out _)
             ? DragDropEffects.Copy
             : DragDropEffects.None;
         e.Handled = true;
@@ -102,31 +104,187 @@ public partial class MainWindow : Window
         // Do not allow drag-and-drop while a png is already compressing
         if (ViewModel.IsCompressing) return;
 
-        if (!TryGetDroppedPng(e, out string path))
+        if (!TryGetDroppedPngs(e, out List<string> paths))
         {
             await MessageDialog.ShowWarningAsync(this, "Only .png files can be dropped here.");
             return;
         }
 
-        ViewModel.SetInputFile(path);
+        ViewModel.AddInputFiles(paths); // Dropping adds to the selection instead of replacing
     }
     
-    private static bool TryGetDroppedPng(DragEventArgs e, out string path)
+    /// <summary>
+    /// Single entry point for the "..." button and drag-and-drop.
+    /// If files are already selected, the user must before the selection is replaced.
+    /// </summary>
+    private async Task ApplySelectionAsync(IReadOnlyList<string> paths)
     {
-        path = string.Empty;
-        IStorageItem[]? items = e.DataTransfer.TryGetFiles();
-        string? local = items?.FirstOrDefault()?.TryGetLocalPath();
-
-        if (local == null 
-            || !File.Exists(local) 
-            || !local.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+        if (paths.Count == 0) return;
+ 
+        int current = ViewModel.InputFiles.Count;
+        if (current > 0)
         {
-            return false;
+            bool replace = await ConfirmDialog.ShowAsync(this, "Replace selection",
+                $"Replace the {current} currently selected file{(current == 1 ? "" : "s")} " +
+                $"with {paths.Count} new file{(paths.Count == 1 ? "" : "s")}?");
+ 
+            if (!replace) return;
+        }
+ 
+        ViewModel.SetInputFiles(paths);
+    }
+
+    /// <summary>Opens the multi-select PNG picker; returns the chosen paths (empty if cancelled).</summary>
+    private async Task<List<string>> PickPngPathsAsync()
+    {
+        IStorageFolder? startDir = await TryGetFolderAsync(ViewModel.Settings.LastInputPath);
+
+        FilePickerOpenOptions options = new()
+        {
+            Title = "Choose input PNGs",
+            AllowMultiple = true,
+            FileTypeFilter = new[] { FilePickerFileTypes.ImagePng },
+            SuggestedStartLocation = startDir
+        };
+
+        IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(options);
+        return files.Select(f => f.TryGetLocalPath()).OfType<string>().ToList();
+    }
+
+    private async void OnChooseFiles(object? sender, RoutedEventArgs e)
+    {
+        await ApplySelectionAsync(await PickPngPathsAsync()); // Replace selection => asks first if the list isn't empty
+    }
+
+    private async void OnAddFiles(object? sender, RoutedEventArgs e)
+    {
+        ViewModel.AddInputFiles(await PickPngPathsAsync()); // Add to selection => no prompt
+    }
+
+    private void OnRemoveSelected(object? sender, RoutedEventArgs e)
+    {
+        List<InputFileItem> selected = 
+            InputFilesList.SelectedItems?.OfType<InputFileItem>().ToList() ?? new();
+        
+        ViewModel.RemoveInputFiles(selected);
+    }
+
+    private void OnInputSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        ViewModel.SelectedInputCount = InputFilesList.SelectedItems?.Count ?? 0;
+    }
+    
+    #endregion
+
+    #region Directory Selection
+
+    private async void OnChooseDirectory(object? sender, RoutedEventArgs e)
+    {
+        // Safe if null: Start location is set to default location
+        IStorageFolder? startDir = await TryGetFolderAsync(ViewModel.OutputFolderPath);
+
+        FolderPickerOpenOptions options = new()
+        {
+            Title = "Choose destination folder",
+            AllowMultiple = false,
+            SuggestedStartLocation = startDir
+        };
+
+        IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(options);
+        if (folders.Count > 0)
+        {
+            string? path = folders[0].TryGetLocalPath();
+            if (path != null) ViewModel.SetOutputFolder(path);
+        }
+    }
+
+    private async Task<IStorageFolder?> TryGetFolderAsync(string? current)
+    {
+        string dir;
+        
+        try
+        {
+            dir = Path.GetFullPath(GetStartDirectory(current));
+        }
+        catch (Exception e)
+        {
+            await MessageDialog.ShowErrorAsync(this, e.Message);
+            return null;
         }
 
-        path = local;
-        return true;
+        return await StorageProvider.TryGetFolderFromPathAsync(new Uri(dir));
     }
+
+    private string GetStartDirectory(string? current)
+    {
+        if (!string.IsNullOrWhiteSpace(current))
+        {
+            if (Directory.Exists(current)) return current;
+            string? parent = Path.GetDirectoryName(current);
+            if (!string.IsNullOrWhiteSpace(parent) && Directory.Exists(parent)) return parent;
+        }
+
+        try
+        {
+            return Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        }
+        catch (Exception e)
+        {
+            MessageDialog.ShowErrorAsync(this, e.Message);
+            return string.Empty;
+        }
+    }
+
+    #endregion
+
+    #region Compression
+
+    private async void OnCompressClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        // Run compression
+        BatchResult result = await vm.CompressAsync();
+
+        // The batch could not run at all (validation problem, compressor missing...)
+        if (result.FatalError != null)
+        {
+            await MessageDialog.ShowErrorAsync(this, result.FatalError);
+            return;
+        }
+ 
+        await ResultsDialog.ShowAsync(this, result);
+    }
+
+    #endregion
+    
+    #region Helpers
+
+    /// <summary>
+    /// Collects every dropped file that is an existing .png. Anything else is ignored.
+    /// </summary>
+    private static bool TryGetDroppedPngs(DragEventArgs e, out List<string> paths)
+    {
+        paths = new List<string>();
+ 
+        IStorageItem[]? items = e.DataTransfer.TryGetFiles();
+        if (items == null) return false;
+ 
+        foreach (IStorageItem item in items)
+        {
+            string? local = item.TryGetLocalPath();
+ 
+            if (local != null
+                && File.Exists(local)
+                && local.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            {
+                paths.Add(local);
+            }
+        }
+ 
+        return paths.Count > 0;
+    }
+
     
     /// <summary>
     /// Clamp the window's size to the user's current screen size.
@@ -170,88 +328,6 @@ public partial class MainWindow : Window
             WindowState = WindowState.Maximized;
         }
     }
-    
-    private async void OnChooseFile(object? sender, RoutedEventArgs e)
-    {
-        string startFrom = string.IsNullOrEmpty(ViewModel.InputFilePath)
-            ? ViewModel.Settings.LastInputPath
-            : ViewModel.InputFilePath;
 
-        IStorageFolder? startDir = await TryGetFolderAsync(startFrom);
-
-        FilePickerOpenOptions options = new()
-        {
-            Title = "Choose input PNG",
-            AllowMultiple = false,
-            FileTypeFilter = new[] { FilePickerFileTypes.ImagePng },
-            SuggestedStartLocation = startDir
-        };
-
-        IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(options);
-        if (files.Count > 0)
-        {
-            string? path = files[0].TryGetLocalPath();
-            if (path != null) ViewModel.SetInputFile(path);
-        }
-    }
-
-    private async void OnChooseDirectory(object? sender, RoutedEventArgs e)
-    {
-        IStorageFolder? startDir = await TryGetFolderAsync(ViewModel.OutputFolderPath);
-
-        FolderPickerOpenOptions options = new()
-        {
-            Title = "Choose destination folder",
-            AllowMultiple = false,
-            SuggestedStartLocation = startDir
-        };
-
-        IReadOnlyList<IStorageFolder> folders = await StorageProvider.OpenFolderPickerAsync(options);
-        if (folders.Count > 0)
-        {
-            string? path = folders[0].TryGetLocalPath();
-            if (path != null) ViewModel.SetOutputFolder(path);
-        }
-    }
-
-    private async Task<IStorageFolder?> TryGetFolderAsync(string? current)
-    {
-        string dir = Path.GetFullPath(GetStartDirectory(current));
-        return await StorageProvider.TryGetFolderFromPathAsync(new Uri(dir));
-    }
-
-    private static string GetStartDirectory(string? current)
-    {
-        if (!string.IsNullOrEmpty(current))
-        {
-            if (Directory.Exists(current)) return current;
-            string? parent = Path.GetDirectoryName(current);
-            if (!string.IsNullOrWhiteSpace(parent) && Directory.Exists(parent)) return parent;
-        }
-
-        return Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-    }
-    
-    private async void OnCompressClicked(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not MainViewModel vm) return;
-
-        // Run compression
-        CompressionResult result = await vm.CompressAsync();
-
-        // Show appropriate dialog based on result
-        if (!result.Success)
-        {
-            await MessageDialog.ShowErrorAsync(this, result.ErrorMessage ?? "An unknown error occurred.");
-        }
-        else
-        {
-            string message = $"Original size: {result.KbBefore:F2} KB\n" +
-                             $"Compressed size: {result.KbAfter:F2} KB\n" +
-                             $"Reduced by: {result.ReductionPercent:F1}%\n" +
-                             (string.IsNullOrEmpty(result.OxipngNote) ? "" : $"\n{result.OxipngNote}");
-
-            await MessageDialog.ShowInfoAsync(this, message);
-        }
-    }
+    #endregion
 }
