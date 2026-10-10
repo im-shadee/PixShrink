@@ -4,7 +4,7 @@
 
 Licensing: The desktop application is MIT-licensed; the pngopt compression engine is GPLv3-or-later. See [Licensing](#-Licensing) for details.
 
-[How to use](#-usage) • [Optimization details](#optimization-options)
+[How to use](#-usage) • [Optimization details](#optimization-options) • [Changelog](./CHANGELOG.md)
 
 It combines a desktop interface made in C# using the Avalonia framework with a standalone Python compression script, communicating through a JSON-based process interface.
 
@@ -22,20 +22,21 @@ PixShrink separates its UI from its processing engine. The application launches 
 
 The Python process communicates its result through JSON written to stdout. The C# application parses these results and displays, accordingly:
 - An error message with the exact message thrown by Python
-
-  <img width="548" height="289" alt="error_log" src="https://github.com/user-attachments/assets/364fbf40-d0f7-4939-89f7-f6079ff3167d" />
-
 - A success message with stats
-
-  <img width="539" height="287" alt="success_log" src="https://github.com/user-attachments/assets/a04f4197-125b-4db2-84af-b7577e7a2307" />
 
 The user is free to play with the settings and find what works best for them, all packed into one practical interface.
 
+**Since 1.2.0, errors/outputs are more detailed and cover each file in a batch, and all logs/error get written into a log.txt file.**
+
+<img width="566" height="515" alt="Capture d&#39;écran_20261010_200024" src="https://github.com/user-attachments/assets/9fc0df25-5f84-4498-80df-2591345ede58" />
+<img width="562" height="514" alt="Capture d&#39;écran_20261010_195338" src="https://github.com/user-attachments/assets/e4383bdd-a87c-4c6d-843e-1a68c2338fcd" />
+
 ## 📕 Usage
 1. Extract and launch PixShrink
-2. Select the PNG images you want to optimize
+2. Select the PNG images you want to optimize (batching supported since version 1.2.0)
 
-<img width="635" height="220" alt="file_select" src="https://github.com/user-attachments/assets/0bb10e9a-8511-4bfe-a13a-454bbaa9426e" />
+<img width="645" height="320" alt="image" src="https://github.com/user-attachments/assets/ea48bd67-9f41-456a-8c4e-f9db9e73d967" />
+
 
 3. Configure the optimization options
 4. Click on "Compress". This will start the optimization process.
@@ -45,7 +46,8 @@ Here is a small presentation of the optimization options of PixShrink
 
 As explained [earlier](#-features), there are 3 color modes you can use:
 
-<img width="191" height="186" alt="color_modes" src="https://github.com/user-attachments/assets/a4b8f35a-d9e0-487e-90eb-9d5998c836df" />
+<img width="376" height="78" alt="image" src="https://github.com/user-attachments/assets/ffe5e7ba-1503-431c-a44c-3223be31b72e" />
+
 
 - RGB preserves the original color space used by the image
 - Grayscale turns the image into levels of gray instead of colors. This mode is usually used for pngs that are already grayscale, allowing the color channels to be stripped.
