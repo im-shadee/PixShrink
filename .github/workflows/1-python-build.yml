@@ -1,0 +1,39 @@
+# Builds python .exe/linux executables standalone
+name: 1. Build Python Helper
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-python:
+    name: Build Python
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            python_artifact: pngopt.exe
+          - os: ubuntu-latest
+            python_artifact: pngopt
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Install Python Dependencies & Build PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r pngopt/requirements.txt
+          pip install pyinstaller
+          pyinstaller --onefile --hidden-import=_cffi_backend pngopt/pngopt.py --name ${{ matrix.python_artifact }}
+
+      - name: Upload Python Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-binary-${{ matrix.os }}
+          path: dist/${{ matrix.python_artifact }}
+          

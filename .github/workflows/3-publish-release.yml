@@ -1,0 +1,56 @@
+# Publish the most recent build into releases and creates a new tag
+name: 3. Publish Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # Needed to create GitHub Releases and Git Tags
+  actions: read   # Needed to download artifacts from another workflow
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Parse Release Tag from C# Source
+        id: parse_tag
+        shell: bash
+        run: |
+          CS_FILE="PixShrink/Views/MainWindow.axaml.cs"
+          VERSION_NUM=$(grep -E 's_VersionNumber\s*=' "$CS_FILE" | sed -E 's/.*"([^"]+)".*/\1/')
+          CLEAN_VER=$(echo "$VERSION_NUM" | sed -E 's/beta-?//I')
+
+          if [[ "$VERSION_NUM" =~ [Bb][Ee][Tt][Aa] ]]; then
+            TAG_NAME="v${CLEAN_VER}-beta"
+            IS_PRERELEASE="true"
+          else
+            TAG_NAME="v${CLEAN_VER}"
+            IS_PRERELEASE="false"
+          fi
+
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+
+      - name: Download Artifacts from Full Build
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          # This must exactly match the filename of your Step 2 workflow file
+          workflow: 2-full-build.yml 
+          # Automatically grabs the artifacts from the most recent successful run
+          workflow_conclusion: success 
+          path: ./release_assets
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.parse_tag.outputs.tag_name }}
+          name: Release ${{ steps.parse_tag.outputs.tag_name }}
+          prerelease: ${{ steps.parse_tag.outputs.is_prerelease == 'true' }}
+          draft: false
+          files: |
+            release_assets/**/*.zip
+            release_assets/**/*.tar.gz
+            
